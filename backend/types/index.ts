@@ -138,3 +138,28 @@ export interface SupabaseHealthStatus {
     alertsCount: number;
   };
 }
+
+export type InquiryPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type InquiryStatus = 'pending' | 'drafted' | 'replied' | 'resolved';
+export type InquiryType = 'stock_check' | 'bulk_quote' | 'order_tracking' | 'returns' | 'general';
+
+export interface CustomerInquiry {
+  id: string;
+  customer_name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  inquiry_type: InquiryType;
+  product_id?: string;
+  product_name?: string;
+  requested_quantity?: number;
+  subject: string;
+  message: string;
+  priority: InquiryPriority;
+  status: InquiryStatus;
+  ai_draft_response?: string;
+  final_response?: string;
+  created_at: string;
+  responded_at?: string;
+}
+

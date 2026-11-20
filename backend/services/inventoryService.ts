@@ -5,6 +5,7 @@ import {
   initialMovements,
   initialAlerts,
   initialForecasts,
+  initialCustomerInquiries,
 } from '../data/seedData.ts';
 import {
   Product,
@@ -13,6 +14,8 @@ import {
   ReorderAlert,
   AIForecast,
   DashboardStats,
+  CustomerInquiry,
+  InquiryStatus,
 } from '../types/index.ts';
 
 // In-memory data store for development & mock fallback
@@ -21,6 +24,7 @@ let memorySuppliers: Supplier[] = JSON.parse(JSON.stringify(initialSuppliers));
 let memoryMovements: StockMovement[] = JSON.parse(JSON.stringify(initialMovements));
 let memoryAlerts: ReorderAlert[] = JSON.parse(JSON.stringify(initialAlerts));
 let memoryForecasts: AIForecast[] = JSON.parse(JSON.stringify(initialForecasts));
+let memoryInquiries: CustomerInquiry[] = JSON.parse(JSON.stringify(initialCustomerInquiries));
 
 export const inventoryService = {
   // 1. Fetch Products
@@ -456,4 +460,224 @@ export const inventoryService = {
     }
     return memoryForecasts;
   },
+
+  // 14. Customer Inquiries
+  async getCustomerInquiries(params?: { status?: string; priority?: string }): Promise<CustomerInquiry[]> {
+    if (supabase) {
+      try {
+        let query = supabase.from('customer_inquiries').select('*').order('created_at', { ascending: false });
+        if (params?.status && params.status !== 'all') {
+          query = query.eq('status', params.status);
+        }
+        if (params?.priority && params.priority !== 'all') {
+          query = query.eq('priority', params.priority);
+        }
+        const { data, error } = await query;
+        if (!error && data) return data as CustomerInquiry[];
+      } catch (err) {
+        console.warn('[Service] Supabase getCustomerInquiries failed, using in-memory store:', err);
+      }
+    }
+
+    let items = [...memoryInquiries];
+    if (params?.status && params.status !== 'all') {
+      items = items.filter((i) => i.status === params.status);
+    }
+    if (params?.priority && params.priority !== 'all') {
+      items = items.filter((i) => i.priority === params.priority);
+    }
+    return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
+
+  async getCustomerInquiryById(id: string): Promise<CustomerInquiry | null> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('customer_inquiries').select('*').eq('id', id).single();
+        if (!error && data) return data as CustomerInquiry;
+      } catch (err) {
+        console.warn('[Service] Supabase getCustomerInquiryById failed:', err);
+      }
+    }
+    return memoryInquiries.find((i) => i.id === id) || null;
+  },
+
+  async createCustomerInquiry(inquiryData: Partial<CustomerInquiry>): Promise<CustomerInquiry> {
+    const newInquiry: CustomerInquiry = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `inq-${Date.now()}`,
+      customer_name: inquiryData.customer_name || 'Anonymous Customer',
+      email: inquiryData.email || 'customer@example.com',
+      phone: inquiryData.phone || '',
+      company: inquiryData.company || '',
+      inquiry_type: inquiryData.inquiry_type || 'stock_check',
+      product_id: inquiryData.product_id,
+      product_name: inquiryData.product_name,
+      requested_quantity: inquiryData.requested_quantity || 1,
+      subject: inquiryData.subject || 'Stock Inquiry',
+      message: inquiryData.message || '',
+      priority: inquiryData.priority || 'medium',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('customer_inquiries').insert([newInquiry]).select().single();
+        if (!error && data) return data as CustomerInquiry;
+      } catch (err) {
+        console.warn('[Service] Supabase createCustomerInquiry failed:', err);
+      }
+    }
+
+    memoryInquiries.unshift(newInquiry);
+    return newInquiry;
+  },
+
+  // 15. Smart AI Customer Response Generator
+  async generateAICustomerResponse(id: string, tone: 'formal' | 'friendly' | 'urgent' = 'formal'): Promise<{
+    inquiry: CustomerInquiry;
+    suggestedResponse: string;
+    stockDetails: {
+      availableStock: number;
+      canFulfillImmediately: boolean;
+      unitPrice: number;
+      productName: string;
+    };
+  }> {
+    const inquiry = await this.getCustomerInquiryById(id);
+    if (!inquiry) throw new Error('Customer inquiry not found');
+
+    // Retrieve product details if product_id is set
+    let targetProduct: Product | null = null;
+    if (inquiry.product_id) {
+      targetProduct = await this.getProductById(inquiry.product_id);
+    } else if (inquiry.product_name) {
+      const allProds = await this.getProducts();
+      targetProduct = allProds.find((p) => p.name.toLowerCase().includes(inquiry.product_name!.toLowerCase())) || null;
+    }
+
+    const availableStock = targetProduct ? targetProduct.current_stock : 0;
+    const requestedQty = inquiry.requested_quantity || 1;
+    const canFulfill = availableStock >= requestedQty;
+    const unitPrice = targetProduct ? targetProduct.selling_price : 0;
+    const productName = targetProduct ? targetProduct.name : (inquiry.product_name || 'Requested Item');
+    const totalCost = unitPrice * requestedQty;
+
+    let responseDraft = '';
+
+    if (tone === 'formal') {
+      responseDraft = `Dear ${inquiry.customer_name},\n\nThank you for contacting SmartStock Precision Inventory regarding your inquiry on "${productName}".\n\n`;
+      if (targetProduct) {
+        if (canFulfill) {
+          responseDraft += `We are pleased to inform you that we currently have ${availableStock} units in stock at our warehouse, which fully satisfies your requested quantity of ${requestedQty} units.\n\n`;
+          responseDraft += `Commercial Quotation Details:\n- Item: ${productName} (SKU: ${targetProduct.sku})\n- Unit Price: ₹${unitPrice.toLocaleString('en-IN')}\n- Requested Quantity: ${requestedQty} units\n- Total Estimated Amount: ₹${totalCost.toLocaleString('en-IN')} (exclusive of 18% GST)\n- Dispatch Lead Time: 24 to 48 hours via express freight.\n\n`;
+        } else if (availableStock > 0) {
+          responseDraft += `We currently have ${availableStock} units immediately on hand (partial fulfillment of your ${requestedQty} unit requirement).\n`;
+          responseDraft += `Our next scheduled factory replenishment batch is expected within 5-7 business days.\n\nUnit Price: ₹${unitPrice.toLocaleString('en-IN')} per unit.\n\n`;
+        } else {
+          responseDraft += `Currently, this item is in high demand and is temporarily zero-stock at our primary distribution hub.\n`;
+          responseDraft += `A purchase order has been placed with our preferred supplier, and new stock is scheduled to arrive within 7 business days.\n\n`;
+        }
+      } else {
+        responseDraft += `We have reviewed your request: "${inquiry.subject}". Our customer operations team is reviewing catalog specifications to ensure the best solution for your project.\n\n`;
+      }
+      responseDraft += `Please confirm if you would like us to reserve the units and issue a formal Proforma Invoice.\n\nSincerely,\nSmartStock Customer Operations Team\nSmartStock Precision Inventory`;
+    } else if (tone === 'friendly') {
+      responseDraft = `Hi ${inquiry.customer_name}!\n\nThanks for reaching out to us at SmartStock! Great to connect with you.\n\n`;
+      if (canFulfill) {
+        responseDraft += `Good news — we have ${availableStock} units of "${productName}" ready to go right now! Your requested ${requestedQty} units can be packed and dispatched straight away.\n\n`;
+        responseDraft += `Pricing is ₹${unitPrice.toLocaleString('en-IN')} per unit (Total: ₹${totalCost.toLocaleString('en-IN')} + GST). We can have this on its way to you within 24 hours.\n\n`;
+      } else {
+        responseDraft += `We checked our inventory for "${productName}". Right now we have ${availableStock} units in stock. We are actively restocking and our next batch will land very soon!\n\n`;
+      }
+      responseDraft += `Let us know if you'd like us to hold this stock for you or help you with anything else!\n\nCheers,\nSmartStock Support Team`;
+    } else {
+      // urgent
+      responseDraft = `ATTN: ${inquiry.customer_name},\n\nPRIORITY RESPONSE — SmartStock Rapid Fulfillment Desk.\n\n`;
+      if (canFulfill) {
+        responseDraft += `STATUS: READY FOR SAME-DAY DISPATCH.\nInventory Level: ${availableStock} available | Requirement: ${requestedQty} units.\nUnit Rate: ₹${unitPrice.toLocaleString('en-IN')}.\n\nTo lock in dispatch for today's courier cutoff, please confirm your delivery address and billing details immediately.\n\n`;
+      } else {
+        responseDraft += `STATUS: BACKORDER EXPEDITED.\nAvailable: ${availableStock}/${requestedQty} units.\nWe have triggered an emergency priority PO with our distributor to shorten lead time.\n\n`;
+      }
+      responseDraft += `Regards,\nSmartStock Priority Dispatch Team`;
+    }
+
+    // Save draft on the inquiry
+    inquiry.ai_draft_response = responseDraft;
+    inquiry.status = inquiry.status === 'pending' ? 'drafted' : inquiry.status;
+
+    if (supabase) {
+      try {
+        await supabase
+          .from('customer_inquiries')
+          .update({ ai_draft_response: responseDraft, status: inquiry.status })
+          .eq('id', id);
+      } catch (err) {
+        console.warn('[Service] Supabase update draft failed:', err);
+      }
+    }
+
+    return {
+      inquiry,
+      suggestedResponse: responseDraft,
+      stockDetails: {
+        availableStock,
+        canFulfillImmediately: canFulfill,
+        unitPrice,
+        productName,
+      },
+    };
+  },
+
+  async respondToCustomerInquiry(id: string, responseText: string): Promise<CustomerInquiry> {
+    const inquiry = await this.getCustomerInquiryById(id);
+    if (!inquiry) throw new Error('Inquiry not found');
+
+    inquiry.final_response = responseText;
+    inquiry.status = 'replied';
+    inquiry.responded_at = new Date().toISOString();
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('customer_inquiries')
+          .update({
+            final_response: responseText,
+            status: 'replied',
+            responded_at: inquiry.responded_at,
+          })
+          .eq('id', id)
+          .select()
+          .single();
+        if (!error && data) return data as CustomerInquiry;
+      } catch (err) {
+        console.warn('[Service] Supabase respondToCustomerInquiry failed:', err);
+      }
+    }
+
+    return inquiry;
+  },
+
+  async updateInquiryStatus(id: string, status: InquiryStatus): Promise<CustomerInquiry> {
+    const inquiry = await this.getCustomerInquiryById(id);
+    if (!inquiry) throw new Error('Inquiry not found');
+
+    inquiry.status = status;
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('customer_inquiries')
+          .update({ status })
+          .eq('id', id)
+          .select()
+          .single();
+        if (!error && data) return data as CustomerInquiry;
+      } catch (err) {
+        console.warn('[Service] Supabase updateInquiryStatus failed:', err);
+      }
+    }
+
+    return inquiry;
+  },
 };
+

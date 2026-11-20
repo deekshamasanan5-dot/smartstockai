@@ -281,3 +281,40 @@ VALUES
 ('b0000000-0000-0000-0000-000000000002', 45, 78.4, CURRENT_DATE + INTERVAL '2 days', 0.89, 'High velocity telemetry node production scheduled next week. Reorder immediately.', 'high_demand'),
 ('b0000000-0000-0000-0000-000000000003', 22, 94.0, CURRENT_DATE, 0.95, 'Critical SMPS stock depleted to 4 units. Unfulfilled customer demand imminent within 72 hours.', 'urgent'),
 ('b0000000-0000-0000-0000-000000000004', 35, 100.0, CURRENT_DATE, 0.97, 'Zero stock available. Active backorders accumulated.', 'urgent');
+
+-- ------------------------------------------------------------------------------
+-- 13. Customer Inquiries & AI Response Table
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS customer_inquiries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(50),
+    company VARCHAR(255),
+    inquiry_type VARCHAR(50) DEFAULT 'stock_check' CHECK (inquiry_type IN ('stock_check', 'bulk_quote', 'order_tracking', 'returns', 'general')),
+    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+    product_name VARCHAR(255),
+    requested_quantity INTEGER DEFAULT 1,
+    subject VARCHAR(300) NOT NULL,
+    message TEXT NOT NULL,
+    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'drafted', 'replied', 'resolved')),
+    ai_draft_response TEXT,
+    final_response TEXT,
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    responded_at TIMESTAMPTZ
+);
+
+ALTER TABLE customer_inquiries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read inquiries" ON customer_inquiries FOR SELECT USING (true);
+CREATE POLICY "Public insert inquiries" ON customer_inquiries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update inquiries" ON customer_inquiries FOR UPDATE USING (true);
+
+-- Seed Customer Inquiries
+INSERT INTO customer_inquiries (id, customer_name, email, phone, company, inquiry_type, product_id, product_name, requested_quantity, subject, message, priority, status)
+VALUES
+('e0000000-0000-0000-0000-000000000001', 'Kavita Rao', 'kavita.rao@robovation.in', '+91 98765 43210', 'RoboVation Systems LLP (Hyderabad)', 'stock_check', 'b0000000-0000-0000-0000-000000000001', 'ESP32 Wi-Fi & BLE Microcontroller Module', 30, 'Urgent: Stock availability check for 30 units of ESP32-WROOM', 'Hello SmartStock Sales Team, we have an ongoing smart metering prototype deployment in Hyderabad. We urgently require 30 units of ESP32-WROOM-32D. Could you confirm if ready stock is available for immediate same-day dispatch and share the unit price with GST?', 'high', 'pending'),
+('e0000000-0000-0000-0000-000000000002', 'Amit Patel', 'amit@nexgeniot.com', '+91 98234 56789', 'NexGen IoT Labs (Ahmedabad)', 'bulk_quote', 'b0000000-0000-0000-0000-000000000002', 'BME280 Temp/Humidity/Pressure Sensor Board', 50, 'Bulk quotation request: 50x BME280 Sensors for AgriTech Pilot', 'Dear Team, We are organizing a pilot installation for farm weather telemetry and need 50 pieces of BME280 sensors. Please provide your best institutional volume pricing along with lead time.', 'medium', 'pending'),
+('e0000000-0000-0000-0000-000000000003', 'Sunil Menon', 's.menon@keralasolar.org', '+91 94470 11223', 'Kerala Solar Automation (Kochi)', 'stock_check', 'b0000000-0000-0000-0000-000000000004', '4-Channel 5V Optocoupler Relay Module', 20, 'Restock ETA for 4-Channel 5V Relay Modules', 'Hi, we noticed on your portal that the 4-Channel 5V Relay Module is currently showing out of stock. When do you expect the next replenishment batch to arrive? We need 20 units for our solar inverter control boxes.', 'urgent', 'pending')
+ON CONFLICT (id) DO NOTHING;
+

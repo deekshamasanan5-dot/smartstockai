@@ -1,4 +1,4 @@
-import { Product, Supplier, StockMovement, ReorderAlert, AIForecast, DashboardStats } from '../types/index.ts';
+import { Product, Supplier, StockMovement, ReorderAlert, AIForecast, DashboardStats, CustomerInquiry } from '../types/index.ts';
 
 export const initialSuppliers: Supplier[] = [
   {
@@ -467,3 +467,74 @@ export const initialForecasts: AIForecast[] = [
     updated_at: new Date().toISOString(),
   },
 ];
+
+export const initialCustomerInquiries: CustomerInquiry[] = [
+  {
+    id: 'c0000000-0000-0000-0000-000000000001',
+    customer_name: 'Kavita Rao',
+    email: 'kavita.rao@robovation.in',
+    phone: '+91 98765 43210',
+    company: 'RoboVation Systems LLP (Hyderabad)',
+    inquiry_type: 'stock_check',
+    product_id: 'b0000000-0000-0000-0000-000000000001',
+    product_name: 'ESP32-WROOM-32D Wi-Fi/BLE Module',
+    requested_quantity: 30,
+    subject: 'Urgent: Stock availability check for 30 units of ESP32-WROOM-32D',
+    message: 'Hello SmartStock Sales Team, we have an ongoing smart metering prototype deployment in Hyderabad. We urgently require 30 units of ESP32-WROOM-32D. Could you confirm if ready stock is available for immediate same-day dispatch and share the unit price with GST?',
+    priority: 'high',
+    status: 'pending',
+    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+  },
+  {
+    id: 'c0000000-0000-0000-0000-000000000002',
+    customer_name: 'Amit Patel',
+    email: 'amit@nexgeniot.com',
+    phone: '+91 98234 56789',
+    company: 'NexGen IoT Labs (Ahmedabad)',
+    inquiry_type: 'bulk_quote',
+    product_id: 'b0000000-0000-0000-0000-000000000002',
+    product_name: 'Arduino Uno Rev3 Development Board',
+    requested_quantity: 60,
+    subject: 'Bulk quotation request: 60x Arduino Uno Rev3 for STEM workshop',
+    message: 'Dear Team, We are organizing a state-level IoT & robotics boot camp next month in Gujarat and need 60 pieces of authentic Arduino Uno Rev3. Please provide your best institutional volume pricing along with lead time.',
+    priority: 'medium',
+    status: 'pending',
+    created_at: new Date(Date.now() - 5 * 3600000).toISOString(),
+  },
+  {
+    id: 'c0000000-0000-0000-0000-000000000003',
+    customer_name: 'Sunil Menon',
+    email: 's.menon@keralasolar.org',
+    phone: '+91 94470 11223',
+    company: 'Kerala Solar Automation (Kochi)',
+    inquiry_type: 'stock_check',
+    product_id: 'b0000000-0000-0000-0000-000000000004',
+    product_name: 'DHT22 Digital Temperature & Humidity Sensor',
+    requested_quantity: 15,
+    subject: 'Restock ETA for DHT22 Temperature Sensors',
+    message: 'Hi, we noticed on your portal that the DHT22 Temperature & Humidity Sensor is currently showing out of stock. When do you expect the next replenishment batch to arrive? We need 15 units for our greenhouse monitor systems.',
+    priority: 'urgent',
+    status: 'pending',
+    created_at: new Date(Date.now() - 12 * 3600000).toISOString(),
+  },
+  {
+    id: 'c0000000-0000-0000-0000-000000000004',
+    customer_name: 'Pooja Hegde',
+    email: 'pooja.h@techmatrix.co.in',
+    phone: '+91 80285 99887',
+    company: 'TechMatrix Hardware Solutions (Bengaluru)',
+    inquiry_type: 'bulk_quote',
+    product_id: 'b0000000-0000-0000-0000-000000000005',
+    product_name: 'M3 Stainless Steel Hex Standoff Kit (120 Pcs)',
+    requested_quantity: 10,
+    subject: 'Order confirmation & delivery timeline for M3 Hex Standoffs',
+    message: 'Hello, looking to procure 10 kits of the M3 Stainless Steel Hex Standoff Kit for delivery to our Electronic City Phase 2 campus. Can you confirm if these can be couriered by tomorrow afternoon?',
+    priority: 'low',
+    status: 'replied',
+    ai_draft_response: 'Dear Pooja,\n\nThank you for reaching out to SmartStock Precision Inventory.\n\nWe are pleased to confirm that we currently have 15 kits of M3 Stainless Steel Hex Standoff Kit (120 Pcs) in stock at our Bengaluru warehouse. We can fulfill your requirement for 10 kits at ₹380 per kit (plus applicable GST).\n\nIf you confirm your order by 4:00 PM today, our local courier dispatch will deliver it to Electronic City Phase 2 by tomorrow afternoon.\n\nWarm regards,\nSmartStock Customer Operations Team',
+    final_response: 'Dear Pooja,\n\nThank you for reaching out to SmartStock Precision Inventory.\n\nWe are pleased to confirm that we currently have 15 kits of M3 Stainless Steel Hex Standoff Kit (120 Pcs) in stock at our Bengaluru warehouse. We can fulfill your requirement for 10 kits at ₹380 per kit (plus applicable GST).\n\nIf you confirm your order by 4:00 PM today, our local courier dispatch will deliver it to Electronic City Phase 2 by tomorrow afternoon.\n\nWarm regards,\nSmartStock Customer Operations Team',
+    created_at: new Date(Date.now() - 24 * 3600000).toISOString(),
+    responded_at: new Date(Date.now() - 20 * 3600000).toISOString(),
+  },
+];
+

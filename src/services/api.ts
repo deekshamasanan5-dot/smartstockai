@@ -7,6 +7,10 @@ import {
   DashboardStats,
   SupabaseHealthStatus,
   ApiResponse,
+  CustomerInquiry,
+  InquiryStatus,
+  RAGSourceCitation,
+  RAGChatMessage,
 } from '../types/inventory.ts';
 
 const API_BASE = '/api';
@@ -133,5 +137,85 @@ export const inventoryApi = {
 
   async getAIForecasts(): Promise<AIForecast[]> {
     return fetchJson('/dashboard/forecasts');
+  },
+
+  // Customer Inquiries & AI Response
+  async getCustomerInquiries(params?: { status?: string; priority?: string }): Promise<CustomerInquiry[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.status && params.status !== 'all') searchParams.set('status', params.status);
+    if (params?.priority && params.priority !== 'all') searchParams.set('priority', params.priority);
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return fetchJson(`/customer-inquiries${query}`);
+  },
+
+  async getCustomerInquiry(id: string): Promise<CustomerInquiry> {
+    return fetchJson(`/customer-inquiries/${id}`);
+  },
+
+  async createCustomerInquiry(inquiry: Partial<CustomerInquiry>): Promise<CustomerInquiry> {
+    return fetchJson('/customer-inquiries', {
+      method: 'POST',
+      body: JSON.stringify(inquiry),
+    });
+  },
+
+  async generateAICustomerResponse(
+    id: string,
+    tone: 'formal' | 'friendly' | 'urgent' = 'formal'
+  ): Promise<{
+    inquiry: CustomerInquiry;
+    suggestedResponse: string;
+    stockDetails: {
+      availableStock: number;
+      canFulfillImmediately: boolean;
+      unitPrice: number;
+      productName: string;
+    };
+  }> {
+    return fetchJson(`/customer-inquiries/${id}/generate-ai-response`, {
+      method: 'POST',
+      body: JSON.stringify({ tone }),
+    });
+  },
+
+  async sendCustomerResponse(id: string, responseText: string): Promise<CustomerInquiry> {
+    return fetchJson(`/customer-inquiries/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ response: responseText }),
+    });
+  },
+
+  async updateInquiryStatus(id: string, status: InquiryStatus): Promise<CustomerInquiry> {
+    return fetchJson(`/customer-inquiries/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  // RAG Chatbot
+  async sendRAGChat(params: {
+    query: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
+    mode?: 'customer' | 'staff';
+  }): Promise<{
+    answer: string;
+    sources: RAGSourceCitation[];
+    suggestedActions?: {
+      label: string;
+      actionType: 'navigate_inventory' | 'adjust_stock' | 'view_supplier' | 'quote';
+      payload?: any;
+    }[];
+  }> {
+    return fetchJson('/rag/chat', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  async getRAGKnowledgeStats(): Promise<{
+    totalChunks: number;
+    chunksByType: Record<string, number>;
+  }> {
+    return fetchJson('/rag/knowledge-base');
   },
 };
